@@ -1,16 +1,17 @@
 import db from "#db/client";
 
-export async function createUser(google_id, email, name, avatar_url) {
+export async function createUser(username, password, { name, email } = {}) {
   const sql = `
-    INSERT INTO users (google_id, email, name, avatar_url)
-    VALUES ($1, $2, $3, $4)
-    RETURNING *;
+  INSERT INTO users
+    (username, password, name, email)
+  VALUES
+    ($1, $2, $3, $4)
+  RETURNING *
   `;
 
   const {
     rows: [user],
-  } = await db.query(sql, [google_id, email, name, avatar_url]);
-
+  } = await db.query(sql, [username, hashedPassword, name ?? null, email ?? null]);
   return user;
 }
 
