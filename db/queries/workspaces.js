@@ -1,30 +1,15 @@
 import db from "#db/client";
 
-/**
- * The functions below marked "SCAFFOLDING" cover Tickets 1-3 (schema, create,
- * list/view), which don't exist yet in this repo. They're here so Tickets
- * 4-6 have something to build on and can actually be tested end-to-end.
- * If you already built these elsewhere, delete these and keep your own --
- * just make sure the function names/shapes match what workspaces.js (the
- * router) expects.
- */
-
-// --- SCAFFOLDING (Tickets 1-3) ------------------------------------------
-
-export async function createWorkspace(name, ownerId) {
+export async function createWorkspace(name, created_by) {
   const sql = `
-  INSERT INTO workspaces
-    (name, owner_id)
-  VALUES
-    ($1, $2)
-  RETURNING *
+    INSERT INTO workspaces (name, created_by)
+    VALUES ($1, $2)
+    RETURNING *;
   `;
+
   const {
     rows: [workspace],
-  } = await db.query(sql, [name, ownerId]);
-
-  // Creator is automatically an admin member of their own workspace
-  await addMember(workspace.id, ownerId, "admin");
+  } = await db.query(sql, [name, created_by]);
 
   return workspace;
 }
@@ -41,81 +26,87 @@ export async function getWorkspaces() {
 
 export async function getWorkspaceById(id) {
   const sql = `
-  SELECT *
-  FROM workspaces
-  WHERE id = $1
+    SELECT *
+    FROM workspaces
+    WHERE id = $1;
   `;
+
   const {
     rows: [workspace],
   } = await db.query(sql, [id]);
+
   return workspace;
 }
 
-// --- Tickets 4-6 ----------------------------------------------------------
-
-/** Gets a single member's role in a workspace. Undefined if not a member. */
-export async function getMembership(workspaceId, userId) {
+export async function getMembership(workspace_id, user_id) {
   const sql = `
-  SELECT *
-  FROM workspace_members
-  WHERE workspace_id = $1 AND user_id = $2
+    SELECT *
+    FROM workspace_members
+    WHERE workspace_id = $1
+      AND user_id = $2;
   `;
+
   const {
     rows: [membership],
-  } = await db.query(sql, [workspaceId, userId]);
+  } = await db.query(sql, [workspace_id, user_id]);
+
   return membership;
 }
 
-/** Adds a user to a workspace with the given role (defaults to "member"). */
-export async function addMember(workspaceId, userId, role = "member") {
+export async function addMember(workspace_id, user_id, role = "contributor") {
   const sql = `
-  INSERT INTO workspace_members
-    (workspace_id, user_id, role)
-  VALUES
-    ($1, $2, $3)
-  RETURNING *
+    INSERT INTO workspace_members (workspace_id, user_id, role)
+    VALUES ($1, $2, $3)
+    RETURNING *;
   `;
+
   const {
     rows: [membership],
-  } = await db.query(sql, [workspaceId, userId, role]);
+  } = await db.query(sql, [workspace_id, user_id, role]);
+
   return membership;
 }
 
-/** Lists every member of a workspace, joined with user info. */
-export async function getMembers(workspaceId) {
+export async function getMembers(workspace_id) {
   const sql = `
-  SELECT u.id, u.name, u.email, wm.role, wm.joined_at
-  FROM workspace_members wm
-  JOIN users u ON u.id = wm.user_id
-  WHERE wm.workspace_id = $1
-  ORDER BY wm.joined_at ASC
+    SELECT u.id, u.name, u.email, wm.role
+    FROM workspace_members wm
+    JOIN users u
+      ON wm.user_id = u.id
+    WHERE wm.workspace_id = $1;
   `;
-  const { rows } = await db.query(sql, [workspaceId]);
+
+  const { rows } = await db.query(sql, [workspace_id]);
+
   return rows;
 }
 
-/** Removes a member from a workspace. Returns the removed row, or undefined. */
-export async function removeMember(workspaceId, userId) {
+export async function removeMember(workspace_id, user_id) {
   const sql = `
-  DELETE FROM workspace_members
-  WHERE workspace_id = $1 AND user_id = $2
-  RETURNING *
+    DELETE FROM workspace_members
+    WHERE workspace_id = $1
+      AND user_id = $2
+    RETURNING *;
   `;
+
   const {
     rows: [removed],
-  } = await db.query(sql, [workspaceId, userId]);
+  } = await db.query(sql, [workspace_id, user_id]);
+
   return removed;
 }
 
-/** Counts how many admins a workspace currently has. */
-export async function countAdmins(workspaceId) {
+export async function countAdmins(workspace_id) {
   const sql = `
-  SELECT COUNT(*)::int AS count
-  FROM workspace_members
-  WHERE workspace_id = $1 AND role = 'admin'
+    SELECT COUNT(*)::int AS count
+    FROM workspace_members
+    WHERE workspace_id = $1
+      AND role = 'admin';
   `;
+
   const {
     rows: [{ count }],
-  } = await db.query(sql, [workspaceId]);
+  } = await db.query(sql, [workspace_id]);
+
   return count;
 }

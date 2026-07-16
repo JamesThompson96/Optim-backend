@@ -10,9 +10,10 @@ DROP TABLE IF EXISTS users CASCADE;
 
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
-    google_id TEXT UNIQUE NOT NULL,
+    google_id TEXT UNIQUE,
     email TEXT UNIQUE NOT NULL,
     name TEXT NOT NULL,
+    password_hash TEXT,
     avatar_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
