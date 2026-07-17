@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS activity_log CASCADE;
+DROP TABLE IF EXISTS comments CASCADE;
 DROP TABLE IF EXISTS task_updates CASCADE;
 DROP TABLE IF EXISTS tasks CASCADE;
 DROP TABLE IF EXISTS epics CASCADE;
@@ -133,4 +135,22 @@ CREATE TABLE task_updates (
     update_text TEXT NOT NULL,
 
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE comments (
+  id serial PRIMARY KEY,
+  task_id integer NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  author_id integer NOT NULL REFERENCES users(id),
+  body text NOT NULL,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE activity_log (
+  id serial PRIMARY KEY,
+  task_id integer NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  user_id integer NOT NULL REFERENCES users(id),
+  action text NOT NULL,
+  details jsonb,
+  created_at timestamp NOT NULL DEFAULT now()
 );
