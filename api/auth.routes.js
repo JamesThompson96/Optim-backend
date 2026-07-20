@@ -1,13 +1,13 @@
 import { Router } from "express";
 import jwt from "jsonwebtoken";
-import crypto from "node:crypto";
 import requireUser from "#middleware/requireUser";
 import { OAuth2Client } from "google-auth-library";
 import {
   createUser,
-  getUserByUsernameAndPassword,
+  getUserByIdentifierAndPassword,
   getUserById,
   getUserByEmail,
+  getUserByGoogleId,
 } from "#db/queries/users";
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
@@ -28,10 +28,10 @@ function publicUser(row) {
 
 router.post("/register", async (req, res) => {
   const { username, password, name, email } = req.body;
-  if (!username || !password) {
+  if (!username || !password || !email) {
     return res
       .status(400)
-      .json({ error: "username and password are required" });
+      .json({ error: "username, email, and password are required" });
   }
   if (password.length < 8) {
     return res
@@ -40,7 +40,7 @@ router.post("/register", async (req, res) => {
   }
 
   try {
-    const user = await createUser(username, password, { name, email });
+    const user = await createUser({ username, password, name, email });
     const token = signToken(user.id);
     res.status(201).json({ token, user: publicUser(user) });
   } catch (err) {
@@ -58,12 +58,12 @@ router.post("/login", async (req, res) => {
   if (!username || !password) {
     return res
       .status(400)
-      .json({ error: "username and password are required" });
+      .json({ error: "username (or email) and password are required" });
   }
 
-  const user = await getUserByUsernameAndPassword(username, password);
+  const user = await getUserByIdentifierAndPassword(username, password);
   if (!user) {
-    return res.status(401).json({ error: "Invalid username or password" });
+    return res.status(401).json({ error: "Invalid credentials" });
   }
 
   const token = signToken(user.id);
@@ -93,26 +93,17 @@ router.post("/google", async (req, res) => {
     return res.status(401).json({ error: "Invalid Google credential" });
   }
 
-  const { email, name } = payload;
-  let user = await getUserByEmail(email.toLowerCase());
+  const { sub: googleId, email, name, picture } = payload;
 
+  let user = await getUserByGoogleId(googleId);
+  if (!user) user = await getUserByEmail(email.toLowerCase());
   if (!user) {
-    try {
-      const username = email.split("@")[0];
-      const randomPassword = crypto.randomBytes(32).toString("hex");
-      user = await createUser(username, randomPassword, {
-        name,
-        email: email.toLowerCase(),
-      });
-    } catch (err) {
-      if (err.code === "23505") {
-        // Lost a race with a duplicate simultaneous request — the user now
-        // exists, just fetch it instead of crashing.
-        user = await getUserByEmail(email.toLowerCase());
-      } else {
-        throw err;
-      }
-    }
+    user = await createUser({
+      googleId,
+      email: email.toLowerCase(),
+      name,
+      avatarUrl: picture,
+    });
   }
 
   const token = signToken(user.id);

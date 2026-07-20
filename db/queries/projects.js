@@ -1,7 +1,12 @@
 import db from "#db/client";
 
 export async function createProject(
-  workspace_id, owner_id, name, status, start_date, end_date,
+  workspace_id,
+  owner_id,
+  name,
+  status,
+  start_date,
+  end_date,
 ) {
   const sql = `
     INSERT INTO projects (
@@ -14,7 +19,12 @@ export async function createProject(
   const {
     rows: [project],
   } = await db.query(sql, [
-    workspace_id, owner_id, name, status, start_date, end_date,
+    workspace_id,
+    owner_id,
+    name,
+    status,
+    start_date,
+    end_date,
   ]);
 
   return project;
@@ -69,9 +79,7 @@ export async function getProjectsByUser(user_id) {
   return rows;
 }
 
-export async function updateProject(
-  id, name, status, start_date, end_date,
-) {
+export async function updateProject(id, name, status, start_date, end_date) {
   const sql = `
     UPDATE projects
     SET name = $2, status = $3, start_date = $4, end_date = $5,
@@ -82,9 +90,7 @@ export async function updateProject(
 
   const {
     rows: [project],
-  } = await db.query(sql, [
-    id, name, status, start_date, end_date,
-  ]);
+  } = await db.query(sql, [id, name, status, start_date, end_date]);
 
   return project;
 }
@@ -101,4 +107,14 @@ export async function deleteProject(id) {
   } = await db.query(sql, [id]);
 
   return project;
+}
+
+export async function getProjectMembership(projectId, userId) {
+  const sql = `
+    SELECT 1
+    FROM project_members
+    WHERE project_id = $1 AND user_id = $2;
+  `;
+  const { rows } = await db.query(sql, [projectId, userId]);
+  return rows.length > 0;
 }
