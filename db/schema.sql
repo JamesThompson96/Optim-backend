@@ -1,5 +1,7 @@
 DROP TABLE IF EXISTS activity_log CASCADE;
 DROP TABLE IF EXISTS comments CASCADE;
+DROP TABLE IF EXISTS task_labels CASCADE;
+DROP TABLE IF EXISTS labels CASCADE;
 DROP TABLE IF EXISTS task_updates CASCADE;
 DROP TABLE IF EXISTS tasks CASCADE;
 DROP TABLE IF EXISTS epics CASCADE;
@@ -155,4 +157,19 @@ CREATE TABLE activity_log (
   action text NOT NULL,
   details jsonb,
   created_at timestamp NOT NULL DEFAULT now()
+);
+
+CREATE TABLE labels (
+  id serial PRIMARY KEY,
+  project_id integer NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  color text NOT NULL,
+  created_at timestamp NOT NULL DEFAULT now(),
+  UNIQUE (project_id, name)
+);
+
+CREATE TABLE task_labels (
+  task_id integer NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+  label_id integer NOT NULL REFERENCES labels(id) ON DELETE CASCADE,
+  PRIMARY KEY (task_id, label_id)
 );
