@@ -110,28 +110,60 @@ export async function deleteTask(id) {
   await db.query("DELETE FROM tasks WHERE id = $1", [id]);
 }
 
-// Quick-assign: assigneeId may be null (to unassign).
+async function getUserName(userId) {
+  const {
+    rows: [user],
+  } = await db.query("SELECT name FROM users WHERE id = $1", [userId]);
+  return user?.name ?? null;
+}
+
+// Quick-assign: assigneeId may be null (to unassign). Returns activityDetails
+// with both IDs and names, so the route can log a human-readable entry.
 export async function assignTask(id, assigneeId) {
+  const {
+    rows: [before],
+  } = await db.query("SELECT assignee_id FROM tasks WHERE id = $1", [id]);
+
   const {
     rows: [task],
   } = await db.query(
     `UPDATE tasks SET assignee_id = $1, updated_at = now() WHERE id = $2 RETURNING ${taskRow()}`,
     [assigneeId, id],
   );
-  return task;
+
+  const [fromName, toName] = await Promise.all([
+    before.assignee_id ? getUserName(before.assignee_id) : null,
+    assigneeId ? getUserName(assigneeId) : null,
+  ]);
+
+  return {
+    task,
+    activityDetails: {
+      fromId: before.assignee_id,
+      fromName,
+      toId: assigneeId ?? null,
+      toName,
+    },
+  };
 }
 
-// Drag-and-drop move. See the prominent NOTE in the route file about why
-// FOR UPDATE here doesn't actually protect against lost updates given
-// db/client.js's single-Client setup.
+// Drag-and-drop move. Returns activityDetails with both column IDs and
+// names, so a status_changed entry can render "To Do -> In Progress"
+// directly, matching the ticket's own example.
+//
+// NOTE: db/client.js is a single pg.Client, not a Pool. The BEGIN/SELECT-
+// FOR-UPDATE/COMMIT here does NOT actually prevent lost updates under real
+// concurrent drags — verified via live testing. Documented as a known
+// limitation; fixing it for real requires converting db/client.js to a Pool.
 export async function moveTask(id, columnId, position) {
   await db.query("BEGIN");
   try {
     const {
       rows: [before],
-    } = await db.query("SELECT column_id FROM tasks WHERE id = $1 FOR UPDATE", [
-      id,
-    ]);
+    } = await db.query(
+      "SELECT t.column_id, c.name AS column_name FROM tasks t JOIN columns c ON c.id = t.column_id WHERE t.id = $1 FOR UPDATE",
+      [id],
+    );
 
     const {
       rows: [task],
@@ -141,8 +173,25 @@ export async function moveTask(id, columnId, position) {
       [columnId, position, id],
     );
 
+    let toColumnName = before.column_name;
+    if (columnId && columnId !== before.column_id) {
+      const {
+        rows: [col],
+      } = await db.query("SELECT name FROM columns WHERE id = $1", [columnId]);
+      toColumnName = col?.name;
+    }
+
     await db.query("COMMIT");
-    return { task, previousColumnId: before.column_id };
+    return {
+      task,
+      previousColumnId: before.column_id,
+      activityDetails: {
+        fromId: before.column_id,
+        fromName: before.column_name,
+        toId: columnId,
+        toName: toColumnName,
+      },
+    };
   } catch (err) {
     await db.query("ROLLBACK");
     throw err;
@@ -156,8 +205,7 @@ export async function logActivity(taskId, userId, action, details) {
   );
 }
 
-// GET /tasks/:id/activity — chronological, OLDEST FIRST (documented choice,
-// matches the same convention used for comments elsewhere in this codebase).
+// GET /tasks/:id/activity — chronological, OLDEST FIRST (documented choice).
 export async function getActivityForTask(taskId) {
   const sql = `
     SELECT a.id, a.action, a.details, a.created_at, u.name AS user_name
@@ -171,8 +219,6 @@ export async function getActivityForTask(taskId) {
 }
 
 // GET /projects/:id/tasks?assignee=&label=&priority=
-// Filters combine with AND. Each is optional — only adds a WHERE condition
-// for params actually passed, rather than requiring all three.
 export async function getTasksForProject(
   projectId,
   { assignee, label, priority } = {},

@@ -9,6 +9,7 @@ import {
   assignTask,
   moveTask,
   logActivity,
+  getActivityForTask,
 } from "#db/queries/tasks";
 
 const router = Router();
@@ -93,31 +94,21 @@ router.patch("/:id/assignee", async (req, res) => {
     }
   }
 
-  const updated = await assignTask(task.id, assigneeId ?? null);
-
+  const { task: updated, activityDetails } = await assignTask(
+    task.id,
+    assigneeId ?? null,
+  );
   await logActivity(
     task.id,
     req.user.id,
     assigneeId ? "assigned" : "unassigned",
-    { from: task.assignee_id, to: assigneeId ?? null },
+    activityDetails,
   );
 
   res.json({ task: updated });
 });
 
 // PATCH /tasks/:id/move — drag-and-drop. body: { columnId, position }
-//
-// NOTE — read before trusting this: db/client.js is a single pg.Client, not
-// a Pool. I tested this exact BEGIN/SELECT-FOR-UPDATE/COMMIT pattern under
-// real concurrent load and it does NOT safely prevent lost updates the way
-// it's supposed to — node-postgres itself warns that calling .query() while
-// another query is in flight on the same Client is deprecated/unsafe. In a
-// live test, 4 of 5 concurrent requests read the same stale value and
-// clobbered each other. This code matches what the ticket asks for
-// literally, but the safety guarantee the ticket wants (FOR UPDATE
-// preventing lost updates between simultaneous drags) is NOT actually
-// achieved here. Fixing this for real requires switching db/client.js to a
-// Pool, where each transaction gets its own dedicated connection.
 router.patch("/:id/move", async (req, res) => {
   const task = await getTask(req.params.id);
   if (!task) return res.status(404).json({ error: "Task not found" });
@@ -137,23 +128,18 @@ router.patch("/:id/move", async (req, res) => {
         .json({ error: "That column doesn't belong to this project" });
   }
 
-  const { task: updated, previousColumnId } = await moveTask(
-    task.id,
-    columnId,
-    position,
-  );
+  const {
+    task: updated,
+    previousColumnId,
+    activityDetails,
+  } = await moveTask(task.id, columnId, position);
 
   if (columnId && columnId !== previousColumnId) {
-    await logActivity(task.id, req.user.id, "status_changed", {
-      from: previousColumnId,
-      to: columnId,
-    });
+    await logActivity(task.id, req.user.id, "status_changed", activityDetails);
   }
 
   res.json({ task: updated });
 });
-
-export default router;
 
 // GET /tasks/:id/activity — chronological (oldest first), joined with user.name
 router.get("/:id/activity", async (req, res) => {
@@ -169,3 +155,5 @@ router.get("/:id/activity", async (req, res) => {
   const activity = await getActivityForTask(task.id);
   res.json({ activity });
 });
+
+export default router;
