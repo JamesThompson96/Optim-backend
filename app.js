@@ -49,8 +49,8 @@ app.use((err, req, res, next) => {
   res.status(500).send("Sorry! Something went wrong.");
 });
 
-app.use(columnsRouter);
+app.use("/columns", columnsRouter);
 
 app.use("/tasks", tasksRouter);
-app.use(boardsRouter);
+app.use("boards", boardsRouter);
 app.use("/projects", projectsRouter);
