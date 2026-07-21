@@ -11,6 +11,9 @@ import morgan from "morgan";
 import taskCommentsRoutes from "#api/taskComments.routes";
 import commentRoutes from "#api/comments.routes";
 import columnsRouter from "#api/columns.routes";
+import taskLabelsRoutes from "#api/taskLabels.routes";
+import projectLabelsRoutes from "#api/projectLabels.routes";
+import labelRoutes from "#api/labels.routes";
 import tasksRouter from "#api/temporarytasks.routes";
 import boardsRouter from "#api/boards.routes";
 
@@ -30,6 +33,10 @@ app.use("/workspaces", workspacesRouter);
 
 app.use("/tasks", taskCommentsRoutes);
 app.use("/comments", commentRoutes);
+
+app.use("/tasks", taskLabelsRoutes);
+app.use("/projects", projectLabelsRoutes);
+app.use("/labels", labelRoutes);
 
 app.use(handlePostgresErrors);
 app.use((err, req, res, next) => {
