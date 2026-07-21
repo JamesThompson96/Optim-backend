@@ -1,9 +1,9 @@
-DROP TABLE IF EXISTS activity_log CASCADE;
-DROP TABLE IF EXISTS comments CASCADE;
 DROP TABLE IF EXISTS task_labels CASCADE;
 DROP TABLE IF EXISTS labels CASCADE;
+DROP TABLE IF EXISTS activity_log CASCADE;
 DROP TABLE IF EXISTS task_updates CASCADE;
 DROP TABLE IF EXISTS tasks CASCADE;
+DROP TABLE IF EXISTS comments CASCADE;
 DROP TABLE IF EXISTS epics CASCADE;
 DROP TABLE IF EXISTS columns CASCADE;
 DROP TABLE IF EXISTS boards CASCADE;
@@ -102,31 +102,22 @@ CREATE TABLE epics (
 
 
 CREATE TABLE tasks (
-    id SERIAL PRIMARY KEY,
-
-    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    epic_id INTEGER REFERENCES epics(id) ON DELETE SET NULL,
-    column_id integer references columns(id) on delete set null,
-
-    assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL,
-
-    title TEXT NOT NULL,
-    description TEXT,
-
-    status TEXT NOT NULL CHECK (
-        status IN ('todo', 'in_progress', 'review', 'blocked', 'completed')
-    ),
-
-    priority TEXT NOT NULL CHECK (
-        priority IN ('low', 'medium', 'high', 'urgent')
-    ),
-
-    due_date DATE,
-
-    blocked_by_task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
-
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  id serial PRIMARY KEY,
+  project_id integer NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+  board_id integer NOT NULL REFERENCES boards(id) ON DELETE CASCADE,
+  column_id integer NOT NULL REFERENCES columns(id) ON DELETE CASCADE,
+  task_number integer NOT NULL,
+  title text NOT NULL,
+  description text,
+  type text NOT NULL DEFAULT 'task' CHECK (type IN ('task', 'bug', 'story')),
+  priority text NOT NULL DEFAULT 'medium' CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+  assignee_id integer REFERENCES users(id) ON DELETE SET NULL,
+  reporter_id integer NOT NULL REFERENCES users(id),
+  due_date date,
+  position float NOT NULL DEFAULT 0,
+  created_at timestamp NOT NULL DEFAULT now(),
+  updated_at timestamp NOT NULL DEFAULT now(),
+  UNIQUE (project_id, task_number)
 );
 
 
