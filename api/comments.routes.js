@@ -32,7 +32,7 @@ router.delete("/:id", async (req, res) => {
       });
   }
 
-  await deleteComment(comment.id);
+  await deleteComment(comment.id, req.user.id);
   res.status(204).send();
 });
 
