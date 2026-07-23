@@ -13,16 +13,16 @@ export async function createBoardWithDefaultColumns(projectId) {
   const columns = [];
 
   for (let i = 0; i < DEFAULT_COLUMNS.length; i++) {
+    const isDone = i === DEFAULT_COLUMNS.length - 1;
     const {
       rows: [column],
     } = await db.query(
-      "INSERT INTO columns (board_id, name, position) VALUES ($1, $2, $3) RETURNING *",
-      [board.id, DEFAULT_COLUMNS[i], i],
+      "INSERT INTO columns (board_id, name, position, is_done_column) VALUES ($1, $2, $3, $4) RETURNING *",
+      [board.id, DEFAULT_COLUMNS[i], i, isDone],
     );
 
     columns.push(column);
   }
-
   return { ...board, columns };
 }
 
